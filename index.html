@@ -172,17 +172,14 @@
       ],
     };
 
-    // phase:
-    // 'select'   → カテゴリ選択画面
-    // 'waiting'  → 予言画面（裏返し待ち）
-    // 'cooldown' → 裏返し検知後5秒間の待機
-    // 'ready'    → 傾き検知待ち
-    // 'result'   → 結果表示中
+    // 完全一方通行
+    // select → waiting → facedown → result
+    // どこからも戻れない・リセットなし
     let phase = 'select';
     let currentCategory = null;
-    let cooldownTimer = null;
 
     function selectCategory(cat) {
+      if (phase !== 'select') return;
       currentCategory = cat;
       phase = 'waiting';
       document.getElementById('select-screen').style.display = 'none';
@@ -190,7 +187,7 @@
     }
 
     function showResult(index) {
-      if (phase !== 'ready') return;
+      if (phase !== 'facedown') return;
       phase = 'result';
 
       const suit = categories[currentCategory][index];
@@ -203,45 +200,21 @@
       document.getElementById('result').style.display = 'flex';
     }
 
-    function reset() {
-      if (phase !== 'result') return;
-      if (cooldownTimer) clearTimeout(cooldownTimer);
-      phase = 'select';
-      currentCategory = null;
-      document.getElementById('result').style.display = 'none';
-      document.getElementById('waiting').style.display = 'none';
-      document.getElementById('select-screen').style.display = 'flex';
-    }
-
     window.addEventListener('deviceorientation', function(e) {
-      // select と result では何もしない
-      if (phase === 'select' || phase === 'result') return;
-
       const beta  = e.beta;
       const gamma = e.gamma;
 
-      // waiting中：裏向き検知のみ
+      // waiting：裏向き検知のみ・それ以外は無視
       if (phase === 'waiting') {
-        const isDown = beta > 100 || beta < -100;
-        if (isDown) {
-          phase = 'cooldown';
-          // 5秒後にreadyへ
-          cooldownTimer = setTimeout(function() {
-            if (phase === 'cooldown') {
-              phase = 'ready';
-            }
-          }, 5000);
+        if (beta > 100 || beta < -100) {
+          phase = 'facedown';
         }
         return;
       }
 
-      // cooldown中：何もしない（5秒待機）
-      if (phase === 'cooldown') return;
-
-      // ready中：傾き検知
-      if (phase === 'ready') {
+      // facedown：傾き検知のみ
+      if (phase === 'facedown') {
         const threshold = 15;
-
         if (beta > threshold && Math.abs(gamma) < 45) {
           showResult(0); // 上
         } else if (gamma > threshold && Math.abs(beta) < 45) {
@@ -251,29 +224,10 @@
         } else if (gamma < -threshold && Math.abs(beta) < 45) {
           showResult(3); // 左
         }
+        return;
       }
-    });
 
-    // シェイク検知（result状態のみ有効）
-    let lastX, lastY, lastZ;
-    let lastShake = 0;
-
-    window.addEventListener('devicemotion', function(e) {
-      if (phase !== 'result') return;
-
-      const acc = e.accelerationIncludingGravity;
-      if (!acc) return;
-
-      const x = acc.x, y = acc.y, z = acc.z;
-      if (lastX !== undefined) {
-        const diff = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
-        const now = Date.now();
-        if (diff > 25 && now - lastShake > 1000) {
-          lastShake = now;
-          reset();
-        }
-      }
-      lastX = x; lastY = y; lastZ = z;
+      // select と result は何もしない
     });
 
     // iOS許可リクエスト

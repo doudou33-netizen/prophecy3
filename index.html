@@ -177,6 +177,7 @@
     let currentCategory = null;
     let baseBeta  = null;
     let baseGamma = null;
+    let betaSign  = 1; // 裏向き時のbetaの符号（+なら正立反転、-なら逆反転）
 
     let recentBetas  = [];
     let recentGammas = [];
@@ -226,6 +227,10 @@
       if (phase === 'waiting') {
         if (beta > 100 || beta < -100) {
           phase = 'cooldown';
+          // 裏向き時のbeta符号を記録
+          // beta > 0 → ホーム側から裏返した（betaは正の大きい値）
+          // beta < 0 → カメラ側から裏返した（betaは負の大きい値）
+          betaSign = beta > 0 ? 1 : -1;
           recentBetas  = [];
           recentGammas = [];
           setTimeout(function() {
@@ -255,16 +260,20 @@
         const absGamma  = Math.abs(diffGamma);
 
         if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
-          if (diffBeta < 0) {
-            showResult(0); // カメラ側を持ち上げる → 上 → index0
+          // betaSignに応じて上下を反転
+          // betaSign=1（ホーム側から裏返し）: diffBeta減少→上、増加→下
+          // betaSign=-1（カメラ側から裏返し）: diffBeta増加→上、減少→下
+          const upDown = diffBeta * betaSign;
+          if (upDown < 0) {
+            showResult(0); // 上（カメラ側を持ち上げる）
           } else {
-            showResult(2); // ホーム側を持ち上げる → 下 → index2
+            showResult(2); // 下（ホーム側を持ち上げる）
           }
         } else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
           if (diffGamma < 0) {
-            showResult(1); // 裏面から見て右 → index1
+            showResult(1); // 裏面から見て右
           } else {
-            showResult(3); // 裏面から見て左 → index3
+            showResult(3); // 裏面から見て左
           }
         }
         return;

@@ -172,9 +172,13 @@
       ],
     };
 
-    // select → waiting → cooldown → ready → result
+    // select → waiting → cooldown → flat待ち → ready → result
+    // cooldown: 裏向き検知後5秒間は無反応
+    // flat待ち: 5秒後に裏向きフラット状態を確認してからready
+    // ready: 次に傾けた時に結果表示
     let phase = 'select';
     let currentCategory = null;
+    let flatConfirmed = false; // 裏向きフラット状態を確認したか
 
     function selectCategory(cat) {
       if (phase !== 'select') return;
@@ -206,9 +210,11 @@
       if (phase === 'waiting') {
         if (beta > 100 || beta < -100) {
           phase = 'cooldown';
-          // 5秒後にreadyへ
           setTimeout(function() {
-            if (phase === 'cooldown') phase = 'ready';
+            if (phase === 'cooldown') {
+              phase = 'flatwait'; // 5秒後にflatwaitへ
+              flatConfirmed = false;
+            }
           }, 5000);
         }
         return;
@@ -217,12 +223,21 @@
       // cooldown：何もしない
       if (phase === 'cooldown') return;
 
+      // flatwait：裏向きフラット状態を確認してからreadyへ
+      // 裏向きフラット = betaが170以上 or -170以下 かつ gammaが±10以内
+      if (phase === 'flatwait') {
+        const isFaceDownFlat = (beta > 160 || beta < -160) && Math.abs(gamma) < 10;
+        if (isFaceDownFlat) {
+          flatConfirmed = true;
+          phase = 'ready';
+        }
+        return;
+      }
+
       // ready：傾き検知
-      // 上下：betaで判定（threshold=15）
-      // 左右：gammaで判定（threshold=10、感度アップ）
       if (phase === 'ready') {
-        const thresholdUD = 15; // 上下
-        const thresholdLR = 10; // 左右（感度アップ）
+        const thresholdUD = 15;
+        const thresholdLR = 10;
 
         if (beta > thresholdUD && Math.abs(gamma) < 45) {
           showResult(0); // 上

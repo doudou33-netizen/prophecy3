@@ -172,13 +172,14 @@
       ],
     };
 
-    // select → waiting → cooldown → flat待ち → ready → result
-    // cooldown: 裏向き検知後5秒間は無反応
-    // flat待ち: 5秒後に裏向きフラット状態を確認してからready
-    // ready: 次に傾けた時に結果表示
+    // select → waiting → cooldown → ready → result
     let phase = 'select';
     let currentCategory = null;
-    let flatConfirmed = false; // 裏向きフラット状態を確認したか
+
+    // 基準値（机に置いた時点のbeta・gamma）
+    let baseBeta = null;
+    let baseGamma = null;
+    const THRESHOLD = 15; // 15度以上変化で確定
 
     function selectCategory(cat) {
       if (phase !== 'select') return;
@@ -208,12 +209,15 @@
 
       // waiting：裏向き検知のみ
       if (phase === 'waiting') {
-        if (beta > 100 || beta < -100) {
+        const isDown = beta > 100 || beta < -100;
+        if (isDown) {
           phase = 'cooldown';
           setTimeout(function() {
             if (phase === 'cooldown') {
-              phase = 'flatwait'; // 5秒後にflatwaitへ
-              flatConfirmed = false;
+              // 5秒後に現在のbeta・gammaを基準値として記録してreadyへ
+              baseBeta  = beta;
+              baseGamma = gamma;
+              phase = 'ready';
             }
           }, 5000);
         }
@@ -223,30 +227,26 @@
       // cooldown：何もしない
       if (phase === 'cooldown') return;
 
-      // flatwait：裏向きフラット状態を確認してからreadyへ
-      // 裏向きフラット = betaが170以上 or -170以下 かつ gammaが±10以内
-      if (phase === 'flatwait') {
-        const isFaceDownFlat = (beta > 160 || beta < -160) && Math.abs(gamma) < 10;
-        if (isFaceDownFlat) {
-          flatConfirmed = true;
-          phase = 'ready';
-        }
-        return;
-      }
-
-      // ready：傾き検知
+      // ready：基準値からの変化量で判定
       if (phase === 'ready') {
-        const thresholdUD = 15;
-        const thresholdLR = 10;
+        const diffBeta  = beta  - baseBeta;
+        const diffGamma = gamma - baseGamma;
 
-        if (beta > thresholdUD && Math.abs(gamma) < 45) {
-          showResult(0); // 上
-        } else if (gamma > thresholdLR && Math.abs(beta) < 60) {
-          showResult(1); // 右
-        } else if (beta < -thresholdUD && Math.abs(gamma) < 45) {
-          showResult(2); // 下
-        } else if (gamma < -thresholdLR && Math.abs(beta) < 60) {
-          showResult(3); // 左
+        // betaとgammaの変化量の絶対値を比較して大きい方向を優先
+        if (Math.abs(diffBeta) >= Math.abs(diffGamma)) {
+          // 前後方向の変化が大きい
+          if (diffBeta < -THRESHOLD) {
+            showResult(0); // カメラ側を持ち上げる → 上
+          } else if (diffBeta > THRESHOLD) {
+            showResult(2); // ホーム側を持ち上げる → 下
+          }
+        } else {
+          // 左右方向の変化が大きい
+          if (diffGamma > THRESHOLD) {
+            showResult(1); // 右側を持ち上げる → 右
+          } else if (diffGamma < -THRESHOLD) {
+            showResult(3); // 左側を持ち上げる → 左
+          }
         }
         return;
       }

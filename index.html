@@ -148,28 +148,28 @@
     // 上→右→下→左（時計回り）= index 0→1→2→3
     const categories = {
       mark: [
-        { symbol: '♦', name: 'ダイヤ',   color: 'red'   }, // 上
-        { symbol: '♣', name: 'クラブ',   color: 'black' }, // 右
-        { symbol: '♥', name: 'ハート',   color: 'red'   }, // 下
-        { symbol: '♠', name: 'スペード', color: 'black' }, // 左
+        { symbol: '♦', name: 'ダイヤ',   color: 'red'   },
+        { symbol: '♣', name: 'クラブ',   color: 'black' },
+        { symbol: '♥', name: 'ハート',   color: 'red'   },
+        { symbol: '♠', name: 'スペード', color: 'black' },
       ],
       number: [
-        { symbol: '１', name: '', color: 'black' }, // 上
-        { symbol: '２', name: '', color: 'black' }, // 右
-        { symbol: '３', name: '', color: 'black' }, // 下
-        { symbol: '４', name: '', color: 'black' }, // 左
+        { symbol: '１', name: '', color: 'black' },
+        { symbol: '２', name: '', color: 'black' },
+        { symbol: '３', name: '', color: 'black' },
+        { symbol: '４', name: '', color: 'black' },
       ],
       color: [
-        { symbol: '●', name: '赤', color: 'red'   }, // 上
-        { symbol: '●', name: '青', color: 'blue'  }, // 右
-        { symbol: '●', name: '緑', color: 'green' }, // 下
-        { symbol: '●', name: '黄', color: 'yellow'}, // 左
+        { symbol: '●', name: '赤', color: 'red'   },
+        { symbol: '●', name: '青', color: 'blue'  },
+        { symbol: '●', name: '緑', color: 'green' },
+        { symbol: '●', name: '黄', color: 'yellow'},
       ],
       izakaya: [
-        { symbol: '🍽', name: '皿',       color: 'black' }, // 上
-        { symbol: '🍺', name: 'コップ',   color: 'black' }, // 右
-        { symbol: '🥢', name: '箸',       color: 'black' }, // 下
-        { symbol: '🧻', name: 'おしぼり', color: 'black' }, // 左
+        { symbol: '🍽', name: '皿',       color: 'black' },
+        { symbol: '🍺', name: 'コップ',   color: 'black' },
+        { symbol: '🥢', name: '箸',       color: 'black' },
+        { symbol: '🧻', name: 'おしぼり', color: 'black' },
       ],
     };
 
@@ -177,7 +177,7 @@
     let currentCategory = null;
     let baseBeta  = null;
     let baseGamma = null;
-    let betaSign  = 1; // 裏向き時のbetaの符号（+なら正立反転、-なら逆反転）
+    let baseSign  = 1; // 机に置いた時のbetaの符号
 
     let recentBetas  = [];
     let recentGammas = [];
@@ -227,10 +227,6 @@
       if (phase === 'waiting') {
         if (beta > 100 || beta < -100) {
           phase = 'cooldown';
-          // 裏向き時のbeta符号を記録
-          // beta > 0 → ホーム側から裏返した（betaは正の大きい値）
-          // beta < 0 → カメラ側から裏返した（betaは負の大きい値）
-          betaSign = beta > 0 ? 1 : -1;
           recentBetas  = [];
           recentGammas = [];
           setTimeout(function() {
@@ -248,6 +244,10 @@
         if (isStable(recentBetas) && isStable(recentGammas)) {
           baseBeta  = average(recentBetas.slice(-STABLE_COUNT));
           baseGamma = average(recentGammas.slice(-STABLE_COUNT));
+          // 机に置いた時のbetaの符号を記録
+          // beta > 0（約+170）→ ホーム側が遠い方に向いている
+          // beta < 0（約-170）→ カメラ側が遠い方に向いている
+          baseSign = baseBeta > 0 ? 1 : -1;
           phase = 'ready';
         }
         return;
@@ -260,11 +260,10 @@
         const absGamma  = Math.abs(diffGamma);
 
         if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
-          // betaSignに応じて上下を反転
-          // betaSign=1（ホーム側から裏返し）: diffBeta減少→上、増加→下
-          // betaSign=-1（カメラ側から裏返し）: diffBeta増加→上、減少→下
-          const upDown = diffBeta * betaSign;
-          if (upDown < 0) {
+          // baseSignで上下を補正
+          // baseSign=+1の時: diffBeta減少→カメラ側持ち上げ→上, 増加→ホーム側持ち上げ→下
+          // baseSign=-1の時: diffBeta増加→カメラ側持ち上げ→上, 減少→ホーム側持ち上げ→下
+          if (diffBeta * baseSign < 0) {
             showResult(0); // 上（カメラ側を持ち上げる）
           } else {
             showResult(2); // 下（ホーム側を持ち上げる）

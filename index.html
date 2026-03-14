@@ -177,8 +177,14 @@
     let baseBeta  = null;
     let baseGamma = null;
 
-    const THRESHOLD = 15;  // 15度以上変化で候補
-    const DOMINANCE = 2.0; // もう一方の2倍以上でないと確定しない
+    // 安定検知用：直近の値を複数保持して平均を基準値にする
+    let recentBetas  = [];
+    let recentGammas = [];
+    const STABLE_COUNT = 10; // 10回分の値で安定判定
+    const STABLE_RANGE = 3;  // ±3度以内なら安定とみなす
+
+    const THRESHOLD  = 15;  // 15度以上変化で候補
+    const DOMINANCE  = 2.0; // もう一方の2倍以上でないと確定しない
 
     function selectCategory(cat) {
       if (phase !== 'select') return;
@@ -202,6 +208,18 @@
       document.getElementById('result').style.display = 'flex';
     }
 
+    function isStable(arr) {
+      if (arr.length < STABLE_COUNT) return false;
+      const recent = arr.slice(-STABLE_COUNT);
+      const max = Math.max(...recent);
+      const min = Math.min(...recent);
+      return (max - min) <= STABLE_RANGE * 2;
+    }
+
+    function average(arr) {
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
     window.addEventListener('deviceorientation', function(e) {
       const beta  = e.beta;
       const gamma = e.gamma;
@@ -210,19 +228,35 @@
       if (phase === 'waiting') {
         if (beta > 100 || beta < -100) {
           phase = 'cooldown';
+          recentBetas  = [];
+          recentGammas = [];
           setTimeout(function() {
             if (phase === 'cooldown') {
-              baseBeta  = beta;
-              baseGamma = gamma;
-              phase = 'ready';
+              phase = 'stabilizing'; // 安定待ちフェーズへ
             }
           }, 5000);
         }
         return;
       }
 
+      // cooldown：何もしない
       if (phase === 'cooldown') return;
 
+      // stabilizing：安定するまで基準値を更新し続ける
+      if (phase === 'stabilizing') {
+        recentBetas.push(beta);
+        recentGammas.push(gamma);
+
+        // 直近10回が安定したら基準値として確定しreadyへ
+        if (isStable(recentBetas) && isStable(recentGammas)) {
+          baseBeta  = average(recentBetas.slice(-STABLE_COUNT));
+          baseGamma = average(recentGammas.slice(-STABLE_COUNT));
+          phase = 'ready';
+        }
+        return;
+      }
+
+      // ready：基準値からの変化量で判定
       if (phase === 'ready') {
         const diffBeta  = beta  - baseBeta;
         const diffGamma = gamma - baseGamma;

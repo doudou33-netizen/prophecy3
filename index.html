@@ -177,14 +177,13 @@
     let baseBeta  = null;
     let baseGamma = null;
 
-    // 安定検知用：直近の値を複数保持して平均を基準値にする
     let recentBetas  = [];
     let recentGammas = [];
-    const STABLE_COUNT = 10; // 10回分の値で安定判定
-    const STABLE_RANGE = 3;  // ±3度以内なら安定とみなす
+    const STABLE_COUNT = 10;
+    const STABLE_RANGE = 3;
 
-    const THRESHOLD  = 15;  // 15度以上変化で候補
-    const DOMINANCE  = 2.0; // もう一方の2倍以上でないと確定しない
+    const THRESHOLD = 15;
+    const DOMINANCE = 2.0;
 
     function selectCategory(cat) {
       if (phase !== 'select') return;
@@ -224,7 +223,6 @@
       const beta  = e.beta;
       const gamma = e.gamma;
 
-      // waiting：裏向き検知のみ
       if (phase === 'waiting') {
         if (beta > 100 || beta < -100) {
           phase = 'cooldown';
@@ -232,22 +230,18 @@
           recentGammas = [];
           setTimeout(function() {
             if (phase === 'cooldown') {
-              phase = 'stabilizing'; // 安定待ちフェーズへ
+              phase = 'stabilizing';
             }
           }, 5000);
         }
         return;
       }
 
-      // cooldown：何もしない
       if (phase === 'cooldown') return;
 
-      // stabilizing：安定するまで基準値を更新し続ける
       if (phase === 'stabilizing') {
         recentBetas.push(beta);
         recentGammas.push(gamma);
-
-        // 直近10回が安定したら基準値として確定しreadyへ
         if (isStable(recentBetas) && isStable(recentGammas)) {
           baseBeta  = average(recentBetas.slice(-STABLE_COUNT));
           baseGamma = average(recentGammas.slice(-STABLE_COUNT));
@@ -256,7 +250,6 @@
         return;
       }
 
-      // ready：基準値からの変化量で判定
       if (phase === 'ready') {
         const diffBeta  = beta  - baseBeta;
         const diffGamma = gamma - baseGamma;
@@ -267,24 +260,23 @@
         // 前後方向が優勢かつ15度以上
         if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
           if (diffBeta < 0) {
-            showResult(0); // カメラ側を持ち上げる → 上
+            showResult(0); // カメラ側を持ち上げる → 上（1番目）
           } else {
-            showResult(2); // ホーム側を持ち上げる → 下
+            showResult(1); // ホーム側を持ち上げる → 下（2番目）
           }
         }
         // 左右方向が優勢かつ15度以上
         else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
-          if (diffGamma > 0) {
-            showResult(1); // 右側を持ち上げる → 右
+          if (diffGamma < 0) {
+            showResult(2); // 裏面から見て右 → 右（3番目）
           } else {
-            showResult(3); // 左側を持ち上げる → 左
+            showResult(3); // 裏面から見て左 → 左（4番目）
           }
         }
         return;
       }
     });
 
-    // iOS許可リクエスト
     window.addEventListener('load', function() {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {

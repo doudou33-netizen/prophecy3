@@ -172,9 +172,7 @@
       ],
     };
 
-    // 完全一方通行
-    // select → waiting → facedown → result
-    // どこからも戻れない・リセットなし
+    // select → waiting → cooldown → ready → result
     let phase = 'select';
     let currentCategory = null;
 
@@ -187,7 +185,7 @@
     }
 
     function showResult(index) {
-      if (phase !== 'facedown') return;
+      if (phase !== 'ready') return;
       phase = 'result';
 
       const suit = categories[currentCategory][index];
@@ -204,24 +202,35 @@
       const beta  = e.beta;
       const gamma = e.gamma;
 
-      // waiting：裏向き検知のみ・それ以外は無視
+      // waiting：裏向き検知のみ
       if (phase === 'waiting') {
         if (beta > 100 || beta < -100) {
-          phase = 'facedown';
+          phase = 'cooldown';
+          // 5秒後にreadyへ
+          setTimeout(function() {
+            if (phase === 'cooldown') phase = 'ready';
+          }, 5000);
         }
         return;
       }
 
-      // facedown：傾き検知のみ
-      if (phase === 'facedown') {
-        const threshold = 15;
-        if (beta > threshold && Math.abs(gamma) < 45) {
+      // cooldown：何もしない
+      if (phase === 'cooldown') return;
+
+      // ready：傾き検知
+      // 上下：betaで判定（threshold=15）
+      // 左右：gammaで判定（threshold=10、感度アップ）
+      if (phase === 'ready') {
+        const thresholdUD = 15; // 上下
+        const thresholdLR = 10; // 左右（感度アップ）
+
+        if (beta > thresholdUD && Math.abs(gamma) < 45) {
           showResult(0); // 上
-        } else if (gamma > threshold && Math.abs(beta) < 45) {
+        } else if (gamma > thresholdLR && Math.abs(beta) < 60) {
           showResult(1); // 右
-        } else if (beta < -threshold && Math.abs(gamma) < 45) {
+        } else if (beta < -thresholdUD && Math.abs(gamma) < 45) {
           showResult(2); // 下
-        } else if (gamma < -threshold && Math.abs(beta) < 45) {
+        } else if (gamma < -thresholdLR && Math.abs(beta) < 60) {
           showResult(3); // 左
         }
         return;

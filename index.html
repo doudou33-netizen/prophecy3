@@ -172,14 +172,13 @@
       ],
     };
 
-    // select → waiting → cooldown → ready → result
     let phase = 'select';
     let currentCategory = null;
-
-    // 基準値（机に置いた時点のbeta・gamma）
-    let baseBeta = null;
+    let baseBeta  = null;
     let baseGamma = null;
-    const THRESHOLD = 15; // 15度以上変化で確定
+
+    const THRESHOLD = 15;  // 15度以上変化で候補
+    const DOMINANCE = 2.0; // もう一方の2倍以上でないと確定しない
 
     function selectCategory(cat) {
       if (phase !== 'select') return;
@@ -209,12 +208,10 @@
 
       // waiting：裏向き検知のみ
       if (phase === 'waiting') {
-        const isDown = beta > 100 || beta < -100;
-        if (isDown) {
+        if (beta > 100 || beta < -100) {
           phase = 'cooldown';
           setTimeout(function() {
             if (phase === 'cooldown') {
-              // 5秒後に現在のbeta・gammaを基準値として記録してreadyへ
               baseBeta  = beta;
               baseGamma = gamma;
               phase = 'ready';
@@ -224,34 +221,33 @@
         return;
       }
 
-      // cooldown：何もしない
       if (phase === 'cooldown') return;
 
-      // ready：基準値からの変化量で判定
       if (phase === 'ready') {
         const diffBeta  = beta  - baseBeta;
         const diffGamma = gamma - baseGamma;
 
-        // betaとgammaの変化量の絶対値を比較して大きい方向を優先
-        if (Math.abs(diffBeta) >= Math.abs(diffGamma)) {
-          // 前後方向の変化が大きい
-          if (diffBeta < -THRESHOLD) {
+        const absBeta  = Math.abs(diffBeta);
+        const absGamma = Math.abs(diffGamma);
+
+        // 前後方向が優勢かつ15度以上
+        if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
+          if (diffBeta < 0) {
             showResult(0); // カメラ側を持ち上げる → 上
-          } else if (diffBeta > THRESHOLD) {
+          } else {
             showResult(2); // ホーム側を持ち上げる → 下
           }
-        } else {
-          // 左右方向の変化が大きい
-          if (diffGamma > THRESHOLD) {
+        }
+        // 左右方向が優勢かつ15度以上
+        else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
+          if (diffGamma > 0) {
             showResult(1); // 右側を持ち上げる → 右
-          } else if (diffGamma < -THRESHOLD) {
+          } else {
             showResult(3); // 左側を持ち上げる → 左
           }
         }
         return;
       }
-
-      // select と result は何もしない
     });
 
     // iOS許可リクエスト

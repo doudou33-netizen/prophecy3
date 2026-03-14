@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>予言</title>
+  <link rel="apple-touch-icon" href="IMG_8251.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, sans-serif;
+      background: #0a0a0a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #select-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      width: 100vw;
+      gap: 20px;
+    }
+
+    #select-screen h1 {
+      color: #c9a84c;
+      font-size: 28px;
+      letter-spacing: 6px;
+      margin-bottom: 10px;
+    }
+
+    #select-screen p {
+      color: #555;
+      font-size: 13px;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+
+    .cat-btn {
+      width: 240px;
+      padding: 16px;
+      background: transparent;
+      border: 1px solid #c9a84c;
+      color: #c9a84c;
+      font-size: 16px;
+      letter-spacing: 4px;
+      border-radius: 30px;
+    }
+
+    .cat-btn:active {
+      background: #c9a84c22;
+    }
+
+    #waiting {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #waiting h1 {
+      color: #c9a84c;
+      font-size: 28px;
+      letter-spacing: 6px;
+    }
+
+    #result {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      width: 100vw;
+      background: #0a0a0a;
+    }
+
+    .suit {
+      font-size: 180px;
+      line-height: 1;
+      filter: drop-shadow(0 0 30px currentColor);
+      animation: reveal 0.8s ease-out;
+    }
+
+    .suit.red    { color: #c0392b; }
+    .suit.black  { color: #ecf0f1; }
+    .suit.blue   { color: #2980b9; }
+    .suit.green  { color: #27ae60; }
+    .suit.yellow { color: #f1c40f; }
+
+    .suit-name {
+      font-size: 22px;
+      letter-spacing: 8px;
+      margin-top: 20px;
+      animation: reveal 0.8s ease-out;
+    }
+
+    .suit-name.red    { color: #c0392b; }
+    .suit-name.black  { color: #ecf0f1; }
+    .suit-name.blue   { color: #2980b9; }
+    .suit-name.green  { color: #27ae60; }
+    .suit-name.yellow { color: #f1c40f; }
+
+    .gold-line {
+      width: 120px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, #c9a84c, transparent);
+      margin: 24px auto;
+      animation: reveal 1s ease-out;
+    }
+
+    @keyframes reveal {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="select-screen">
+    <h1>予　言</h1>
+    <p>カテゴリを選んでください</p>
+    <button class="cat-btn" onclick="selectCategory('mark')">♦ マーク</button>
+    <button class="cat-btn" onclick="selectCategory('number')">１ 数字</button>
+    <button class="cat-btn" onclick="selectCategory('color')">● 色</button>
+    <button class="cat-btn" onclick="selectCategory('izakaya')">🍺 居酒屋</button>
+  </div>
+
+  <div id="waiting">
+    <h1>予　言</h1>
+  </div>
+
+  <div id="result">
+    <div class="gold-line"></div>
+    <div class="suit" id="suitSymbol"></div>
+    <div class="suit-name" id="suitName"></div>
+    <div class="gold-line"></div>
+  </div>
+
+  <script>
+    const categories = {
+      mark: [
+        { symbol: '♦', name: 'ダイヤ',     color: 'red'   },
+        { symbol: '♣', name: 'クラブ',     color: 'black' },
+        { symbol: '♥', name: 'ハート',     color: 'red'   },
+        { symbol: '♠', name: 'スペード',   color: 'black' },
+      ],
+      number: [
+        { symbol: '１', name: '', color: 'black' },
+        { symbol: '２', name: '', color: 'black' },
+        { symbol: '３', name: '', color: 'black' },
+        { symbol: '４', name: '', color: 'black' },
+      ],
+      color: [
+        { symbol: '●', name: '赤', color: 'red'   },
+        { symbol: '●', name: '青', color: 'blue'  },
+        { symbol: '●', name: '緑', color: 'green' },
+        { symbol: '●', name: '黄', color: 'yellow'},
+      ],
+      izakaya: [
+        { symbol: '🍽', name: '皿',       color: 'black' },
+        { symbol: '🍺', name: 'コップ',   color: 'black' },
+        { symbol: '🥢', name: '箸',       color: 'black' },
+        { symbol: '🧻', name: 'おしぼり', color: 'black' },
+      ],
+    };
+
+    let currentCategory = null;
+    let revealed = false;
+    let faceDown = false;
+    let started = false;
+
+    // 画面の状態管理
+    // 'select' → 'waiting' → 'facedown' → 'result'
+    // waiting と facedown は選択画面には絶対戻らない
+    let phase = 'select';
+
+    function selectCategory(cat) {
+      currentCategory = cat;
+      revealed = false;
+      faceDown = false;
+      started = true;
+      phase = 'waiting';
+      document.getElementById('select-screen').style.display = 'none';
+      document.getElementById('waiting').style.display = 'flex';
+    }
+
+    function showResult(index) {
+      if (phase !== 'facedown') return;
+      phase = 'result';
+      revealed = true;
+
+      const suit = categories[currentCategory][index];
+      document.getElementById('suitSymbol').textContent = suit.symbol;
+      document.getElementById('suitSymbol').className = 'suit ' + suit.color;
+      document.getElementById('suitName').textContent = suit.name;
+      document.getElementById('suitName').className = 'suit-name ' + suit.color;
+
+      document.getElementById('waiting').style.display = 'none';
+      document.getElementById('result').style.display = 'flex';
+    }
+
+    function reset() {
+      // シェイクでのみ選択画面に戻る
+      if (phase !== 'result') return;
+      phase = 'select';
+      revealed = false;
+      faceDown = false;
+      started = false;
+      currentCategory = null;
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('waiting').style.display = 'none';
+      document.getElementById('select-screen').style.display = 'flex';
+    }
+
+    window.addEventListener('deviceorientation', function(e) {
+      // 選択画面・結果画面では傾き検知しない
+      if (phase === 'select' || phase === 'result') return;
+
+      const beta  = e.beta;
+      const gamma = e.gamma;
+
+      // 裏向き検知
+      const isDown = beta > 100 || beta < -100;
+      if (isDown) {
+        phase = 'facedown';
+        return;
+      }
+
+      // facedown状態のみ傾き検知
+      if (phase !== 'facedown') return;
+
+      const threshold = 15;
+
+      if (beta > threshold && Math.abs(gamma) < 45) {
+        showResult(0); // 上
+      } else if (gamma > threshold && Math.abs(beta) < 45) {
+        showResult(1); // 右
+      } else if (beta < -threshold && Math.abs(gamma) < 45) {
+        showResult(2); // 下
+      } else if (gamma < -threshold && Math.abs(beta) < 45) {
+        showResult(3); // 左
+      }
+    });
+
+    // シェイク検知（result状態のみ有効）
+    let lastX, lastY, lastZ;
+    let lastShake = 0;
+
+    window.addEventListener('devicemotion', function(e) {
+      if (phase !== 'result') return;
+
+      const acc = e.accelerationIncludingGravity;
+      if (!acc) return;
+
+      const x = acc.x, y = acc.y, z = acc.z;
+      if (lastX !== undefined) {
+        const diff = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
+        const now = Date.now();
+        if (diff > 25 && now - lastShake > 1000) {
+          lastShake = now;
+          reset();
+        }
+      }
+      lastX = x; lastY = y; lastZ = z;
+    });
+
+    // iOS許可リクエスト
+    window.addEventListener('load', function() {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        document.getElementById('select-screen').innerHTML = `
+          <h1>予　言</h1>
+          <button onclick="requestPermission()" style="padding:14px 36px; background:transparent; border:1px solid #c9a84c; color:#c9a84c; font-size:14px; letter-spacing:4px; border-radius:30px; margin-top:20px;">START</button>
+        `;
+      }
+    });
+
+    function requestPermission() {
+      Promise.all([
+        DeviceOrientationEvent.requestPermission(),
+        DeviceMotionEvent.requestPermission()
+      ]).then(() => {
+        document.getElementById('select-screen').innerHTML = `
+          <h1>予　言</h1>
+          <p style="color:#555; font-size:13px; letter-spacing:2px; margin-bottom:10px;">カテゴリを選んでください</p>
+          <button class="cat-btn" onclick="selectCategory('mark')">♦ マーク</button>
+          <button class="cat-btn" onclick="selectCategory('number')">１ 数字</button>
+          <button class="cat-btn" onclick="selectCategory('color')">● 色</button>
+          <button class="cat-btn" onclick="selectCategory('izakaya')">🍺 居酒屋</button>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>

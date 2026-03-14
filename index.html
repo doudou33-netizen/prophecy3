@@ -172,21 +172,13 @@
       ],
     };
 
-    let currentCategory = null;
-    let revealed = false;
-    let faceDown = false;
-    let started = false;
-
-    // 画面の状態管理
-    // 'select' → 'waiting' → 'facedown' → 'result'
-    // waiting と facedown は選択画面には絶対戻らない
+    // phase: 'select' → 'waiting' → 'facedown' → 'result'
+    // facedownになったら絶対にselectとwaitingには戻らない
     let phase = 'select';
+    let currentCategory = null;
 
     function selectCategory(cat) {
       currentCategory = cat;
-      revealed = false;
-      faceDown = false;
-      started = true;
       phase = 'waiting';
       document.getElementById('select-screen').style.display = 'none';
       document.getElementById('waiting').style.display = 'flex';
@@ -195,7 +187,6 @@
     function showResult(index) {
       if (phase !== 'facedown') return;
       phase = 'result';
-      revealed = true;
 
       const suit = categories[currentCategory][index];
       document.getElementById('suitSymbol').textContent = suit.symbol;
@@ -208,12 +199,8 @@
     }
 
     function reset() {
-      // シェイクでのみ選択画面に戻る
       if (phase !== 'result') return;
       phase = 'select';
-      revealed = false;
-      faceDown = false;
-      started = false;
       currentCategory = null;
       document.getElementById('result').style.display = 'none';
       document.getElementById('waiting').style.display = 'none';
@@ -221,20 +208,21 @@
     }
 
     window.addEventListener('deviceorientation', function(e) {
-      // 選択画面・結果画面では傾き検知しない
       if (phase === 'select' || phase === 'result') return;
 
       const beta  = e.beta;
       const gamma = e.gamma;
 
-      // 裏向き検知
-      const isDown = beta > 100 || beta < -100;
-      if (isDown) {
-        phase = 'facedown';
-        return;
+      // 裏向き検知（一度facedownになったら絶対に戻らない）
+      if (phase === 'waiting') {
+        const isDown = beta > 100 || beta < -100;
+        if (isDown) {
+          phase = 'facedown';
+        }
+        return; // waitingフェーズでは傾き検知しない
       }
 
-      // facedown状態のみ傾き検知
+      // facedownフェーズのみ傾き検知
       if (phase !== 'facedown') return;
 
       const threshold = 15;

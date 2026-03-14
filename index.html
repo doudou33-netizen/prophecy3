@@ -145,30 +145,31 @@
   </div>
 
   <script>
+    // 上→右→下→左（時計回り）= index 0→1→2→3
     const categories = {
       mark: [
-        { symbol: '♦', name: 'ダイヤ',     color: 'red'   },
-        { symbol: '♣', name: 'クラブ',     color: 'black' },
-        { symbol: '♥', name: 'ハート',     color: 'red'   },
-        { symbol: '♠', name: 'スペード',   color: 'black' },
+        { symbol: '♦', name: 'ダイヤ',   color: 'red'   }, // 上
+        { symbol: '♣', name: 'クラブ',   color: 'black' }, // 右
+        { symbol: '♥', name: 'ハート',   color: 'red'   }, // 下
+        { symbol: '♠', name: 'スペード', color: 'black' }, // 左
       ],
       number: [
-        { symbol: '１', name: '', color: 'black' },
-        { symbol: '２', name: '', color: 'black' },
-        { symbol: '３', name: '', color: 'black' },
-        { symbol: '４', name: '', color: 'black' },
+        { symbol: '１', name: '', color: 'black' }, // 上
+        { symbol: '２', name: '', color: 'black' }, // 右
+        { symbol: '３', name: '', color: 'black' }, // 下
+        { symbol: '４', name: '', color: 'black' }, // 左
       ],
       color: [
-        { symbol: '●', name: '赤', color: 'red'   },
-        { symbol: '●', name: '青', color: 'blue'  },
-        { symbol: '●', name: '緑', color: 'green' },
-        { symbol: '●', name: '黄', color: 'yellow'},
+        { symbol: '●', name: '赤', color: 'red'   }, // 上
+        { symbol: '●', name: '青', color: 'blue'  }, // 右
+        { symbol: '●', name: '緑', color: 'green' }, // 下
+        { symbol: '●', name: '黄', color: 'yellow'}, // 左
       ],
       izakaya: [
-        { symbol: '🍽', name: '皿',       color: 'black' },
-        { symbol: '🍺', name: 'コップ',   color: 'black' },
-        { symbol: '🥢', name: '箸',       color: 'black' },
-        { symbol: '🧻', name: 'おしぼり', color: 'black' },
+        { symbol: '🍽', name: '皿',       color: 'black' }, // 上
+        { symbol: '🍺', name: 'コップ',   color: 'black' }, // 右
+        { symbol: '🥢', name: '箸',       color: 'black' }, // 下
+        { symbol: '🧻', name: 'おしぼり', color: 'black' }, // 左
       ],
     };
 
@@ -181,7 +182,6 @@
     let recentGammas = [];
     const STABLE_COUNT = 10;
     const STABLE_RANGE = 3;
-
     const THRESHOLD = 15;
     const DOMINANCE = 2.0;
 
@@ -229,9 +229,7 @@
           recentBetas  = [];
           recentGammas = [];
           setTimeout(function() {
-            if (phase === 'cooldown') {
-              phase = 'stabilizing';
-            }
+            if (phase === 'cooldown') phase = 'stabilizing';
           }, 5000);
         }
         return;
@@ -253,24 +251,20 @@
       if (phase === 'ready') {
         const diffBeta  = beta  - baseBeta;
         const diffGamma = gamma - baseGamma;
+        const absBeta   = Math.abs(diffBeta);
+        const absGamma  = Math.abs(diffGamma);
 
-        const absBeta  = Math.abs(diffBeta);
-        const absGamma = Math.abs(diffGamma);
-
-        // 前後方向が優勢かつ15度以上
         if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
           if (diffBeta < 0) {
-            showResult(0); // カメラ側を持ち上げる → 上（1番目）
+            showResult(0); // カメラ側を持ち上げる → 上 → index0
           } else {
-            showResult(1); // ホーム側を持ち上げる → 下（2番目）
+            showResult(2); // ホーム側を持ち上げる → 下 → index2
           }
-        }
-        // 左右方向が優勢かつ15度以上
-        else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
+        } else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
           if (diffGamma < 0) {
-            showResult(2); // 裏面から見て右 → 右（3番目）
+            showResult(1); // 裏面から見て右 → index1
           } else {
-            showResult(3); // 裏面から見て左 → 左（4番目）
+            showResult(3); // 裏面から見て左 → index3
           }
         }
         return;

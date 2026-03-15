@@ -173,11 +173,12 @@
       ],
     };
 
+    // select → waiting(10秒) → stabilizing → ready → result
     let phase = 'select';
     let currentCategory = null;
     let baseBeta  = null;
     let baseGamma = null;
-    let baseSign  = 1; // 机に置いた時のbetaの符号
+    let baseSign  = 1;
 
     let recentBetas  = [];
     let recentGammas = [];
@@ -189,9 +190,18 @@
     function selectCategory(cat) {
       if (phase !== 'select') return;
       currentCategory = cat;
-      phase = 'waiting';
+      phase = 'cooldown';
       document.getElementById('select-screen').style.display = 'none';
       document.getElementById('waiting').style.display = 'flex';
+      recentBetas  = [];
+      recentGammas = [];
+
+      // 10秒後にstabilizingへ
+      setTimeout(function() {
+        if (phase === 'cooldown') {
+          phase = 'stabilizing';
+        }
+      }, 10000);
     }
 
     function showResult(index) {
@@ -211,9 +221,7 @@
     function isStable(arr) {
       if (arr.length < STABLE_COUNT) return false;
       const recent = arr.slice(-STABLE_COUNT);
-      const max = Math.max(...recent);
-      const min = Math.min(...recent);
-      return (max - min) <= STABLE_RANGE * 2;
+      return Math.max(...recent) - Math.min(...recent) <= STABLE_RANGE * 2;
     }
 
     function average(arr) {
@@ -224,35 +232,24 @@
       const beta  = e.beta;
       const gamma = e.gamma;
 
-      if (phase === 'waiting') {
-        if (beta > 100 || beta < -100) {
-          phase = 'cooldown';
-          recentBetas  = [];
-          recentGammas = [];
-          setTimeout(function() {
-            if (phase === 'cooldown') phase = 'stabilizing';
-          }, 5000);
-        }
-        return;
-      }
-
+      // cooldown：10秒間は何もしない
       if (phase === 'cooldown') return;
 
+      // stabilizing：安定するまで値を収集して基準値を確定
       if (phase === 'stabilizing') {
         recentBetas.push(beta);
         recentGammas.push(gamma);
         if (isStable(recentBetas) && isStable(recentGammas)) {
           baseBeta  = average(recentBetas.slice(-STABLE_COUNT));
           baseGamma = average(recentGammas.slice(-STABLE_COUNT));
-          // 机に置いた時のbetaの符号を記録
-          // beta > 0（約+170）→ ホーム側が遠い方に向いている
-          // beta < 0（約-170）→ カメラ側が遠い方に向いている
-          baseSign = baseBeta > 0 ? 1 : -1;
+          // 机に置いた状態のbeta符号を記録
+          baseSign = baseBeta >= 0 ? 1 : -1;
           phase = 'ready';
         }
         return;
       }
 
+      // ready：基準値からの変化で判定
       if (phase === 'ready') {
         const diffBeta  = beta  - baseBeta;
         const diffGamma = gamma - baseGamma;
@@ -261,8 +258,6 @@
 
         if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
           // baseSignで上下を補正
-          // baseSign=+1の時: diffBeta減少→カメラ側持ち上げ→上, 増加→ホーム側持ち上げ→下
-          // baseSign=-1の時: diffBeta増加→カメラ側持ち上げ→上, 減少→ホーム側持ち上げ→下
           if (diffBeta * baseSign < 0) {
             showResult(0); // 上（カメラ側を持ち上げる）
           } else {
@@ -279,6 +274,7 @@
       }
     });
 
+    // iOS許可リクエスト
     window.addEventListener('load', function() {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {

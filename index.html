@@ -145,7 +145,6 @@
   </div>
 
   <script>
-    // 上→右→下→左（時計回り）= index 0→1→2→3
     const categories = {
       mark: [
         { symbol: '♦', name: 'ダイヤ',   color: 'red'   },
@@ -173,17 +172,15 @@
       ],
     };
 
-    // select → waiting(10秒) → stabilizing → ready → result
+    // select → cooldown(10秒) → ready → result
     let phase = 'select';
     let currentCategory = null;
     let baseBeta  = null;
     let baseGamma = null;
     let baseSign  = 1;
+    let latestBeta  = null;
+    let latestGamma = null;
 
-    let recentBetas  = [];
-    let recentGammas = [];
-    const STABLE_COUNT = 10;
-    const STABLE_RANGE = 3;
     const THRESHOLD = 15;
     const DOMINANCE = 2.0;
 
@@ -193,13 +190,14 @@
       phase = 'cooldown';
       document.getElementById('select-screen').style.display = 'none';
       document.getElementById('waiting').style.display = 'flex';
-      recentBetas  = [];
-      recentGammas = [];
 
-      // 10秒後にstabilizingへ
+      // 10秒後に最新のbeta・gammaを基準値として記録
       setTimeout(function() {
-        if (phase === 'cooldown') {
-          phase = 'stabilizing';
+        if (phase === 'cooldown' && latestBeta !== null) {
+          baseBeta  = latestBeta;
+          baseGamma = latestGamma;
+          baseSign  = baseBeta >= 0 ? 1 : -1;
+          phase = 'ready';
         }
       }, 10000);
     }
@@ -218,59 +216,34 @@
       document.getElementById('result').style.display = 'flex';
     }
 
-    function isStable(arr) {
-      if (arr.length < STABLE_COUNT) return false;
-      const recent = arr.slice(-STABLE_COUNT);
-      return Math.max(...recent) - Math.min(...recent) <= STABLE_RANGE * 2;
-    }
-
-    function average(arr) {
-      return arr.reduce((a, b) => a + b, 0) / arr.length;
-    }
-
     window.addEventListener('deviceorientation', function(e) {
+      // 常に最新値を保持
+      latestBeta  = e.beta;
+      latestGamma = e.gamma;
+
+      // cooldown と select と result は何もしない
+      if (phase !== 'ready') return;
+
       const beta  = e.beta;
       const gamma = e.gamma;
 
-      // cooldown：10秒間は何もしない
-      if (phase === 'cooldown') return;
+      const diffBeta  = beta  - baseBeta;
+      const diffGamma = gamma - baseGamma;
+      const absBeta   = Math.abs(diffBeta);
+      const absGamma  = Math.abs(diffGamma);
 
-      // stabilizing：安定するまで値を収集して基準値を確定
-      if (phase === 'stabilizing') {
-        recentBetas.push(beta);
-        recentGammas.push(gamma);
-        if (isStable(recentBetas) && isStable(recentGammas)) {
-          baseBeta  = average(recentBetas.slice(-STABLE_COUNT));
-          baseGamma = average(recentGammas.slice(-STABLE_COUNT));
-          // 机に置いた状態のbeta符号を記録
-          baseSign = baseBeta >= 0 ? 1 : -1;
-          phase = 'ready';
+      if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
+        if (diffBeta * baseSign < 0) {
+          showResult(0); // 上（カメラ側を持ち上げる）
+        } else {
+          showResult(2); // 下（ホーム側を持ち上げる）
         }
-        return;
-      }
-
-      // ready：基準値からの変化で判定
-      if (phase === 'ready') {
-        const diffBeta  = beta  - baseBeta;
-        const diffGamma = gamma - baseGamma;
-        const absBeta   = Math.abs(diffBeta);
-        const absGamma  = Math.abs(diffGamma);
-
-        if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
-          // baseSignで上下を補正
-          if (diffBeta * baseSign < 0) {
-            showResult(0); // 上（カメラ側を持ち上げる）
-          } else {
-            showResult(2); // 下（ホーム側を持ち上げる）
-          }
-        } else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
-          if (diffGamma < 0) {
-            showResult(1); // 裏面から見て右
-          } else {
-            showResult(3); // 裏面から見て左
-          }
+      } else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
+        if (diffGamma < 0) {
+          showResult(1); // 裏面から見て右
+        } else {
+          showResult(3); // 裏面から見て左
         }
-        return;
       }
     });
 

@@ -3,273 +3,135 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>予言</title>
-  <link rel="apple-touch-icon" href="IMG_8251.png">
+  <title>デバッグ</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: -apple-system, sans-serif;
       background: #0a0a0a;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    #select-screen {
+      color: #fff;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
-      width: 100vw;
-      gap: 20px;
+      gap: 16px;
+      padding: 20px;
     }
-
-    #select-screen h1 {
+    .box {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 16px 24px;
+      text-align: center;
+      width: 280px;
+    }
+    .label {
       color: #c9a84c;
-      font-size: 28px;
-      letter-spacing: 6px;
-      margin-bottom: 10px;
-    }
-
-    #select-screen p {
-      color: #555;
       font-size: 13px;
       letter-spacing: 2px;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
-
-    .cat-btn {
-      width: 240px;
-      padding: 16px;
+    .val {
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .val.up   { color: #e74c3c; }
+    .val.down { color: #3498db; }
+    button {
+      padding: 14px 36px;
       background: transparent;
       border: 1px solid #c9a84c;
       color: #c9a84c;
-      font-size: 16px;
+      font-size: 14px;
       letter-spacing: 4px;
       border-radius: 30px;
     }
-
-    .cat-btn:active {
-      background: #c9a84c22;
-    }
-
-    #waiting {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      width: 100vw;
-    }
-
-    #waiting h1 {
+    #status {
       color: #c9a84c;
-      font-size: 28px;
-      letter-spacing: 6px;
-    }
-
-    #result {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      width: 100vw;
-      background: #0a0a0a;
-    }
-
-    .suit {
-      font-size: 180px;
-      line-height: 1;
-      filter: drop-shadow(0 0 30px currentColor);
-      animation: reveal 0.8s ease-out;
-    }
-
-    .suit.red    { color: #c0392b; }
-    .suit.black  { color: #ecf0f1; }
-    .suit.blue   { color: #2980b9; }
-    .suit.green  { color: #27ae60; }
-    .suit.yellow { color: #f1c40f; }
-
-    .suit-name {
-      font-size: 22px;
-      letter-spacing: 8px;
-      margin-top: 20px;
-      animation: reveal 0.8s ease-out;
-    }
-
-    .suit-name.red    { color: #c0392b; }
-    .suit-name.black  { color: #ecf0f1; }
-    .suit-name.blue   { color: #2980b9; }
-    .suit-name.green  { color: #27ae60; }
-    .suit-name.yellow { color: #f1c40f; }
-
-    .gold-line {
-      width: 120px;
-      height: 1px;
-      background: linear-gradient(to right, transparent, #c9a84c, transparent);
-      margin: 24px auto;
-      animation: reveal 1s ease-out;
-    }
-
-    @keyframes reveal {
-      from { opacity: 0; transform: scale(0.8); }
-      to { opacity: 1; transform: scale(1); }
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
 
-  <div id="select-screen">
-    <h1>予　言</h1>
-    <p>カテゴリを選んでください</p>
-    <button class="cat-btn" onclick="selectCategory('mark')">♦ マーク</button>
-    <button class="cat-btn" onclick="selectCategory('number')">１ 数字</button>
-    <button class="cat-btn" onclick="selectCategory('color')">● 色</button>
-    <button class="cat-btn" onclick="selectCategory('izakaya')">🍺 居酒屋</button>
+  <button onclick="requestPermission()">START</button>
+  <div id="status">STARTを押してください</div>
+
+  <div class="box">
+    <div class="label">現在のbeta</div>
+    <div class="val" id="betaNow">--</div>
   </div>
 
-  <div id="waiting">
-    <h1>予　言</h1>
+  <div class="box">
+    <div class="label">基準beta（10秒後）</div>
+    <div class="val" id="betaBase">--</div>
   </div>
 
-  <div id="result">
-    <div class="gold-line"></div>
-    <div class="suit" id="suitSymbol"></div>
-    <div class="suit-name" id="suitName"></div>
-    <div class="gold-line"></div>
+  <div class="box">
+    <div class="label">diffBeta（変化量）</div>
+    <div class="val" id="betaDiff">--</div>
+  </div>
+
+  <div class="box">
+    <div class="label">判定</div>
+    <div class="val" id="judge">--</div>
   </div>
 
   <script>
-    const categories = {
-      mark: [
-        { symbol: '♦', name: 'ダイヤ',   color: 'red'   }, // 上
-        { symbol: '♣', name: 'クラブ',   color: 'black' }, // 右
-        { symbol: '♥', name: 'ハート',   color: 'red'   }, // 下
-        { symbol: '♠', name: 'スペード', color: 'black' }, // 左
-      ],
-      number: [
-        { symbol: '１', name: '', color: 'black' }, // 上
-        { symbol: '２', name: '', color: 'black' }, // 右
-        { symbol: '３', name: '', color: 'black' }, // 下
-        { symbol: '４', name: '', color: 'black' }, // 左
-      ],
-      color: [
-        { symbol: '●', name: '赤', color: 'red'   }, // 上
-        { symbol: '●', name: '青', color: 'blue'  }, // 右
-        { symbol: '●', name: '緑', color: 'green' }, // 下
-        { symbol: '●', name: '黄', color: 'yellow'}, // 左
-      ],
-      izakaya: [
-        { symbol: '🍽', name: '皿',       color: 'black' }, // 上
-        { symbol: '🍺', name: 'コップ',   color: 'black' }, // 右
-        { symbol: '🥢', name: '箸',       color: 'black' }, // 下
-        { symbol: '🧻', name: 'おしぼり', color: 'black' }, // 左
-      ],
-    };
+    let phase = 'waiting';
+    let baseBeta = null;
+    let latestBeta = null;
 
-    // select → cooldown(10秒) → ready → result
-    let phase = 'select';
-    let currentCategory = null;
-    let baseBeta  = null;
-    let baseGamma = null;
-    let latestBeta  = null;
-    let latestGamma = null;
+    function requestPermission() {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        Promise.all([
+          DeviceOrientationEvent.requestPermission(),
+          DeviceMotionEvent.requestPermission()
+        ]).then(() => {
+          start();
+        });
+      } else {
+        start();
+      }
+    }
 
-    const THRESHOLD = 15;
-    const DOMINANCE = 2.0;
-
-    function selectCategory(cat) {
-      if (phase !== 'select') return;
-      currentCategory = cat;
+    function start() {
       phase = 'cooldown';
-      document.getElementById('select-screen').style.display = 'none';
-      document.getElementById('waiting').style.display = 'flex';
-
-      // 10秒後にその瞬間の値を基準値として記録
+      document.getElementById('status').textContent = '裏向きにして机に置いてください（10秒待機）';
       setTimeout(function() {
         if (phase === 'cooldown' && latestBeta !== null) {
-          baseBeta  = latestBeta;
-          baseGamma = latestGamma;
+          baseBeta = latestBeta;
+          document.getElementById('betaBase').textContent = Math.round(baseBeta * 10) / 10;
+          document.getElementById('status').textContent = '基準値確定！上下に傾けてみてください';
           phase = 'ready';
         }
       }, 10000);
     }
 
-    function showResult(index) {
-      if (phase !== 'ready') return;
-      phase = 'result';
-
-      const suit = categories[currentCategory][index];
-      document.getElementById('suitSymbol').textContent = suit.symbol;
-      document.getElementById('suitSymbol').className = 'suit ' + suit.color;
-      document.getElementById('suitName').textContent = suit.name;
-      document.getElementById('suitName').className = 'suit-name ' + suit.color;
-
-      document.getElementById('waiting').style.display = 'none';
-      document.getElementById('result').style.display = 'flex';
-    }
-
     window.addEventListener('deviceorientation', function(e) {
-      // 常に最新値を保持
-      latestBeta  = e.beta;
-      latestGamma = e.gamma;
+      latestBeta = e.beta;
+      document.getElementById('betaNow').textContent = Math.round(e.beta * 10) / 10;
 
       if (phase !== 'ready') return;
 
-      const diffBeta  = e.beta  - baseBeta;
-      const diffGamma = e.gamma - baseGamma;
-      const absBeta   = Math.abs(diffBeta);
-      const absGamma  = Math.abs(diffGamma);
+      const diff = Math.round((e.beta - baseBeta) * 10) / 10;
+      document.getElementById('betaDiff').textContent = diff;
 
-      // 前後方向が優勢かつ15度以上
-      if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
-        if (diffBeta < 0) {
-          showResult(0); // 基準より-15度 → 上
-        } else {
-          showResult(2); // 基準より+15度 → 下
-        }
-      }
-      // 左右方向が優勢かつ15度以上
-      else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
-        if (diffGamma < 0) {
-          showResult(1); // 基準より-15度 → 右（裏面から）
-        } else {
-          showResult(3); // 基準より+15度 → 左（裏面から）
-        }
+      if (diff < -15) {
+        document.getElementById('judge').textContent = '上方向';
+        document.getElementById('judge').className = 'val up';
+      } else if (diff > 15) {
+        document.getElementById('judge').textContent = '下方向';
+        document.getElementById('judge').className = 'val down';
+      } else {
+        document.getElementById('judge').textContent = '待機中';
+        document.getElementById('judge').className = 'val';
       }
     });
-
-    // iOS許可リクエスト
-    window.addEventListener('load', function() {
-      if (typeof DeviceOrientationEvent !== 'undefined' &&
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        document.getElementById('select-screen').innerHTML = `
-          <h1>予　言</h1>
-          <button onclick="requestPermission()" style="padding:14px 36px; background:transparent; border:1px solid #c9a84c; color:#c9a84c; font-size:14px; letter-spacing:4px; border-radius:30px; margin-top:20px;">START</button>
-        `;
-      }
-    });
-
-    function requestPermission() {
-      Promise.all([
-        DeviceOrientationEvent.requestPermission(),
-        DeviceMotionEvent.requestPermission()
-      ]).then(() => {
-        document.getElementById('select-screen').innerHTML = `
-          <h1>予　言</h1>
-          <p style="color:#555; font-size:13px; letter-spacing:2px; margin-bottom:10px;">カテゴリを選んでください</p>
-          <button class="cat-btn" onclick="selectCategory('mark')">♦ マーク</button>
-          <button class="cat-btn" onclick="selectCategory('number')">１ 数字</button>
-          <button class="cat-btn" onclick="selectCategory('color')">● 色</button>
-          <button class="cat-btn" onclick="selectCategory('izakaya')">🍺 居酒屋</button>
-        `;
-      });
-    }
   </script>
 </body>
 </html>

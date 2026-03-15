@@ -147,28 +147,28 @@
   <script>
     const categories = {
       mark: [
-        { symbol: '♦', name: 'ダイヤ',   color: 'red'   },
-        { symbol: '♣', name: 'クラブ',   color: 'black' },
-        { symbol: '♥', name: 'ハート',   color: 'red'   },
-        { symbol: '♠', name: 'スペード', color: 'black' },
+        { symbol: '♦', name: 'ダイヤ',   color: 'red'   }, // 上
+        { symbol: '♣', name: 'クラブ',   color: 'black' }, // 右
+        { symbol: '♥', name: 'ハート',   color: 'red'   }, // 下
+        { symbol: '♠', name: 'スペード', color: 'black' }, // 左
       ],
       number: [
-        { symbol: '１', name: '', color: 'black' },
-        { symbol: '２', name: '', color: 'black' },
-        { symbol: '３', name: '', color: 'black' },
-        { symbol: '４', name: '', color: 'black' },
+        { symbol: '１', name: '', color: 'black' }, // 上
+        { symbol: '２', name: '', color: 'black' }, // 右
+        { symbol: '３', name: '', color: 'black' }, // 下
+        { symbol: '４', name: '', color: 'black' }, // 左
       ],
       color: [
-        { symbol: '●', name: '赤', color: 'red'   },
-        { symbol: '●', name: '青', color: 'blue'  },
-        { symbol: '●', name: '緑', color: 'green' },
-        { symbol: '●', name: '黄', color: 'yellow'},
+        { symbol: '●', name: '赤', color: 'red'   }, // 上
+        { symbol: '●', name: '青', color: 'blue'  }, // 右
+        { symbol: '●', name: '緑', color: 'green' }, // 下
+        { symbol: '●', name: '黄', color: 'yellow'}, // 左
       ],
       izakaya: [
-        { symbol: '🍽', name: '皿',       color: 'black' },
-        { symbol: '🍺', name: 'コップ',   color: 'black' },
-        { symbol: '🥢', name: '箸',       color: 'black' },
-        { symbol: '🧻', name: 'おしぼり', color: 'black' },
+        { symbol: '🍽', name: '皿',       color: 'black' }, // 上
+        { symbol: '🍺', name: 'コップ',   color: 'black' }, // 右
+        { symbol: '🥢', name: '箸',       color: 'black' }, // 下
+        { symbol: '🧻', name: 'おしぼり', color: 'black' }, // 左
       ],
     };
 
@@ -177,7 +177,6 @@
     let currentCategory = null;
     let baseBeta  = null;
     let baseGamma = null;
-    let baseSign  = 1;
     let latestBeta  = null;
     let latestGamma = null;
 
@@ -191,12 +190,11 @@
       document.getElementById('select-screen').style.display = 'none';
       document.getElementById('waiting').style.display = 'flex';
 
-      // 10秒後に最新のbeta・gammaを基準値として記録
+      // 10秒後にその瞬間の値を基準値として記録
       setTimeout(function() {
         if (phase === 'cooldown' && latestBeta !== null) {
           baseBeta  = latestBeta;
           baseGamma = latestGamma;
-          baseSign  = baseBeta >= 0 ? 1 : -1;
           phase = 'ready';
         }
       }, 10000);
@@ -221,28 +219,27 @@
       latestBeta  = e.beta;
       latestGamma = e.gamma;
 
-      // cooldown と select と result は何もしない
       if (phase !== 'ready') return;
 
-      const beta  = e.beta;
-      const gamma = e.gamma;
-
-      const diffBeta  = beta  - baseBeta;
-      const diffGamma = gamma - baseGamma;
+      const diffBeta  = e.beta  - baseBeta;
+      const diffGamma = e.gamma - baseGamma;
       const absBeta   = Math.abs(diffBeta);
       const absGamma  = Math.abs(diffGamma);
 
+      // 前後方向が優勢かつ15度以上
       if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
-        if (diffBeta * baseSign < 0) {
-          showResult(0); // 上（カメラ側を持ち上げる）
+        if (diffBeta < 0) {
+          showResult(0); // 基準より-15度 → 上
         } else {
-          showResult(2); // 下（ホーム側を持ち上げる）
+          showResult(2); // 基準より+15度 → 下
         }
-      } else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
+      }
+      // 左右方向が優勢かつ15度以上
+      else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
         if (diffGamma < 0) {
-          showResult(1); // 裏面から見て右
+          showResult(1); // 基準より-15度 → 右（裏面から）
         } else {
-          showResult(3); // 裏面から見て左
+          showResult(3); // 基準より+15度 → 左（裏面から）
         }
       }
     });

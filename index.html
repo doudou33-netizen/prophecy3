@@ -232,11 +232,11 @@
       const absBeta   = Math.abs(diffBeta);
       const absGamma  = Math.abs(diffGamma);
 
-      if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
+            if (absBeta >= THRESHOLD && absBeta >= absGamma * DOMINANCE) {
         if (diffBeta > 0) {
-          showResult(0); // 上（カメラ側を持ち上げる）
-        } else {
           showResult(2); // 下（ホーム側を持ち上げる）
+        } else {
+          showResult(0); // 上（カメラ側を持ち上げる）
         }
       } else if (absGamma >= THRESHOLD && absGamma >= absBeta * DOMINANCE) {
         if (diffGamma < 0) {
